@@ -1,0 +1,27 @@
+[build-system]
+requires = ['poetry'] # 'setuptools', 'wheel', 
+
+[tool.poetry]
+name = "clang-api-doc"
+version = "0.1.0"
+description = "Automatically generate API documentation for C language dialects"
+authors = ["Gideon Müller <gpmueller@outlook.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/gpmueller/clang-api-doc"
+keywords = ["api", "automatic", "documentation"]
+packages = [ { include = "clang_api_doc", from = "." } ]
+
+[tool.poetry.scripts]
+clang-api-doc = 'clang_api_doc:clang_api_doc.main'
+
+[tool.poetry.dependencies]
+python = "^3.6"
+clang = "*"
+
+[tool.poetry.dev-dependencies]
+pytest = "^3.7"
+sphinx = "^1.7"
+pylint = "^2.1"
+coverage = "^4.5"
+codecov = "^2.0"
