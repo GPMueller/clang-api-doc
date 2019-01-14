@@ -4,41 +4,104 @@ from pathlib import Path as _Path
 
 import clang.cindex as _cindex
 
-def find_functions_and_calls(tu):
-    """ Retrieve lists of function declarations and call expressions in a translation unit
-    """
-    filename = tu.cursor.spelling
-    calls = []
+def check():
+    args = parse_args(sys.argv[1:])
+
+    ### Input
+    if args.directory:
+        print("specifying a header directory is not yet supported")
+        exit(1)
+    elif args.files:
+        file_list = [str(name) for name in args.files.split(',')]
+
+    filename = file_list[0]
+
+    ### Set the path to llvm to find libclang
+    if args.llvmlib:
+        _cindex.Config.set_library_path(args.llvmlib)
+
+    ### Create and parse index
+    index = _cindex.Index.create()
+    parse_arguments =  '--language c'.split()
+    translation_unit = index.parse(filename, options=_cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD, args=parse_arguments)
+
+    print('Translation unit:', translation_unit.spelling)
+    # visit(translation_unit.cursor)
+    for cursor in translation_unit.cursor.walk_preorder():
+        if cursor.kind in (_cindex.CursorKind.MACRO_INSTANTIATION, _cindex.CursorKind.MACRO_DEFINITION):
+            if cursor.location.file is not None:
+                print('Found %s Type %s DATA %s Extent %s [line=%s, col=%s]' % (cursor.displayname, cursor.kind, cursor.data, cursor.extent, cursor.location.line, cursor.location.column))
+
+
+
+
+def get_documentables(translation_unit):
+    filename = translation_unit.cursor.spelling
+
+    macros = []
+    variables = []
+    typedefs = []
+    enums = []
+    structs = []
     functions = []
-    for cursor in tu.cursor.walk_preorder():
+    comments = []
+
+    ### Get functions
+    for cursor in translation_unit.cursor.walk_preorder():
         if cursor.location.file is None:
             pass
         elif cursor.location.file.name != filename:
             pass
-        elif cursor.kind == _cindex.CursorKind.CALL_EXPR:
-            calls.append(cursor)
+        elif cursor.kind in (_cindex.CursorKind.MACRO_INSTANTIATION, _cindex.CursorKind.MACRO_DEFINITION):
+            macros.append(cursor)
+        # elif cursor.kind == _cindex.CursorKind.CALL_EXPR:
+        #     calls.append(cursor)
+        # if cursor.kind == _cindex.CursorKind.MACRO_DEFINITION: # _cindex.CursorKind.MACRO_INSTANTIATION, 
+            # macros.append(cursor)
+        # elif cursor.kind == _cindex.CursorKind.:
+        #     typedefs.append(cursor)
+        elif cursor.kind == _cindex.CursorKind.TYPEDEF_DECL:
+            typedefs.append(cursor)
+        elif cursor.kind == _cindex.CursorKind.ENUM_DECL:
+            enums.append(cursor)
+        elif cursor.kind == _cindex.CursorKind.STRUCT_DECL:
+            structs.append(cursor)
         elif cursor.kind == _cindex.CursorKind.FUNCTION_DECL:
             functions.append(cursor)
-    return functions, calls
 
-def fully_qualified(cursor):
-    """ Retrieve a fully qualified function name (with namespaces)
-    """
-    res = cursor.spelling
-    cursor = cursor.semantic_parent
-    while cursor.kind != _cindex.CursorKind.TRANSLATION_UNIT:
-        res = cursor.spelling + '::' + res
-        cursor = cursor.semantic_parent
-    return res
-
-def find_comments(tu):
-    tokens = []
-    for token in tu.cursor.get_tokens():
+    ### Get comments
+    for token in translation_unit.cursor.get_tokens():
         if token.kind == _cindex.TokenKind.COMMENT:
-            tokens.append(token)
-    return tokens
+            comments.append(token)
 
-def main():
+    return macros, variables, typedefs, enums, structs, functions, comments
+
+
+def docstring_from_function(function, file_string):
+    full_function_name = ""
+    if function.extent.start.line == function.extent.end.line:
+        full_function_name = file_string.splitlines()[function.location.line-1][function.extent.start.column-1:function.extent.end.column-1].strip()
+    else:
+        full_function_name = file_string.splitlines()[function.extent.start.line-1].strip()
+        for l in range(function.extent.start.line, function.extent.end.line-1):
+            full_function_name += " " + file_string.splitlines()[l].strip()
+        full_function_name += " " + file_string.splitlines()[function.extent.end.line-1].strip()
+    if full_function_name.endswith(";"):
+        full_function_name = full_function_name[:-1]
+    return full_function_name
+
+
+def docstring_from_comment(comment):
+    text = comment.spelling.strip()
+    if text.startswith("//") or text.startswith("/*"):
+        text = text[2:]
+    if text.endswith("*/"):
+        text = text[:-3]
+    text = text.strip()
+    return text
+
+
+def parse_args(args):
     parser = _argparse.ArgumentParser(
         description="clang-api-doc is a tool for automatic API documentation generation.",
         formatter_class=_argparse.ArgumentDefaultsHelpFormatter,
@@ -53,6 +116,11 @@ def main():
         '-V', '--verbose',
         help='activate more detailed output',
         action='store_true')
+
+    parser.add_argument(
+        '-l', '--llvmlib',
+        type=str,
+        help='set the path to the llvm libclang')
 
     parser.add_argument(
         '-d', '--directory',
@@ -70,7 +138,12 @@ def main():
         type=_Path,
         help='set the output file') # TODO: maybe output directory would be better
 
-    args = parser.parse_args(args=sys.argv[1:])
+    return parser.parse_args(args=args)
+
+
+def main():
+    args = parse_args(sys.argv[1:])
+    
     # print("args:",args)
 
 
@@ -89,50 +162,103 @@ def main():
     else:
         outfilename = "clang-api-doc.md"
 
-    idx = _cindex.Index.create()
-    args =  '--language c'.split()
+    ### Set the path to llvm to find libclang
+    if args.llvmlib:
+        _cindex.Config.set_library_path(args.llvmlib)
+
+    ### Create and parse index
+    index = _cindex.Index.create()
+    parse_arguments =  '--language c'.split()
+    translation_unit = index.parse(filename, options=_cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD, args=parse_arguments)
 
     print(filename, "->", outfilename)
 
-    tu = idx.parse(filename, args=args)
-    functions, calls = find_functions_and_calls(tu)
-    comments = find_comments(tu)
+    ### Get functions and comments
+    macros, variables, typedefs, enums, structs, functions, comments = get_documentables(translation_unit)
 
+    ### Output file header
     with open(outfilename, 'w') as content_file:
         content_file.write("C API documentation\n===================")
 
+    ### Read input to string
     content = ""
     with open(filename, 'r') as content_file:
         content = content_file.read()
 
-    for comment in comments:
-        # print(f"comment: '{comment.spelling}' lines {comment.extent.start.line}-{comment.extent.end.line}")
 
-        for function in functions:
-            if function.location.line == comment.extent.end.line + 1:
-                text = comment.spelling.strip()
-                if text.startswith("//") or text.startswith("/*"):
-                    text = text[2:]
-                if text.endswith("*/"):
-                    text = text[:-3]
-                text = text.strip()
+    # comment_end_lines = [comment.extent.end.line for comment in comments]
+    macro_lines = [macro.location.line for macro in macros]
+    variable_lines = [variable.location.line for variable in variables]
+    typedef_lines = [typedef.location.line for typedef in typedefs]
+    enum_lines = [enum.location.line for enum in enums]
+    struct_lines = [struct.location.line for struct in structs]
+    function_lines = [function.location.line for function in functions]
 
-                full_function_name = ""
-                if function.extent.start.line == function.extent.end.line:
-                    full_function_name = content.splitlines()[function.location.line-1][function.extent.start.column-1:function.extent.end.column-1].strip()
-                else:
-                    full_function_name = content.splitlines()[function.extent.start.line-1].strip()
-                    for l in range(function.extent.start.line, function.extent.end.line-1):
-                        full_function_name += " " + content.splitlines()[l].strip()
-                    full_function_name += " " + content.splitlines()[function.extent.end.line-1][:-2].strip()
 
-                output = f"\n\n**`{full_function_name}`:**\n\n" + text + "\n\n-------------------------------\n"
+    for idx_c, comment in enumerate(comments):
 
-                print(output)
+        comment_text = docstring_from_comment(comment)
+        output = ""
 
-                with open(outfilename, 'a') as content_file:
-                    for l in output.splitlines():
-                        print(l, file=content_file)
+        next_line = comment.extent.end.line + 1
+
+        ### The comment is followed by a macro
+        if next_line in macro_lines:
+            macro = macros[macro_lines.index(next_line)]
+            name = docstring_from_function(macro, content)
+            print("MACRO #################### ", macro, name)
+            # name = typedef.spelling 
+            output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
+
+        ### The comment is followed by a variable
+        if next_line in variable_lines:
+            variable = variables[variable_lines.index(next_line)]
+            name = docstring_from_function(variable, content)
+            # name = typedef.spelling 
+            output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
+
+        ### The comment is followed by a typedef
+        if next_line in typedef_lines:
+            typedef = typedefs[typedef_lines.index(next_line)]
+            name = docstring_from_function(typedef, content)
+            # name = typedef.spelling 
+            output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
+
+        ### The comment is followed by an enum
+        if next_line in enum_lines:
+            enum = enums[enum_lines.index(next_line)]
+            name = docstring_from_function(enum, content)
+            # name = enum.spelling 
+            output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
+
+        ### The comment is followed by a function
+        elif next_line in function_lines:
+            function = functions[function_lines.index(next_line)]
+            full_function_name = docstring_from_function(function, content)
+            output = f"\n\n**`{full_function_name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
+
+        ### The comment is followed by a struct
+        elif next_line in struct_lines:
+            struct = structs[struct_lines.index(next_line)]
+            name = docstring_from_function(struct, content)
+            # name = struct.spelling
+            output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
+
+        ### The comment is free-standing
+        elif not content.splitlines()[next_line-1].strip():
+            output = f"\n\n" + comment_text + "\n\n-------------------------------\n"
+
+        ### Otherwise we may have made a mistake?
+        else:
+            pass
+
+        ### Add to file
+        print(output)
+        with open(outfilename, 'a') as outfile:
+            for l in output.splitlines():
+                print(l, file=outfile)
+
+
 
 if __name__ == '__main__':
     main()
