@@ -1,5 +1,19 @@
+/*
+ * Copyright (c) 2001, Someone
+ *
+ * There is some license.
+ * Find the file somewhere.
+ *
+ */
+
 #ifndef EXAMPLE_H
 #define EXAMPLE_H
+
+
+/*
+THIS IS A GLOBAL COMMENT AND THE FILE HEADING
+------------------------------------------------------
+*/
 
 // Some physical constant [A/m^2]
 #define MYLIB_CONSTANT 3.24
@@ -30,11 +44,34 @@ struct point
     float z;
 };
 
+/*
+Typedef enum... this might be a bit tricky to format nicely.
+
+Would be better to have `typedef enum mylib_values` and then the values
+- some_value  = 0,
+- other_value = 1,
+- next_value  = 2,
+- last_value  = 3,
+*/
+typedef enum
+{
+    some_value  = 0,
+    other_value = 1,
+    next_value  = 2,
+    last_value  = 3,
+} mylib_values;
+
 // Version information
 int mylib_version();
 
 // Move between images (change active_image)
 bool perform_operation(state * state, int some_index=-1);
+
+/*
+THIS IS AN EXAMPLE FOR GLOBAL COMMENT INSERTION
+------------------------------------------------------
+*/
+
 
 // These comments will not
 // appear in the docs
