@@ -1,0 +1,70 @@
+cache:
+  directories:
+  - /usr/local/Cellar
+
+env:
+  global:
+    - secure: "zyBlc4HQXkzm0LId/lR6v70QqUEf8NcL57t0geeBoPMZiDLwPjQVepAY8yXq7uHrqtD+6uzM6sahHwynqJk0UfjYpZQO9O54csRyZ2vNaC1aRBuQe14DOj366Z79hIGh5RN5A6zE5Bzy+gz2RPvgoolZK/1uNhd26o8OtaAgjLMonv/fsRS0v+Ny4jLQzWiqopsF3QvdxQj+PjhVZCQEerD4MUpFtgERCdh51sDB3sue3blzEs7QIVlHRLNQtLDAkT9k8Y/MpzL2T6lJhUU7PbUYTR2P1oAHv/TVLvCgkWwAf5xeNxVG5wQEWUZCIjC7vCJ+g9zm7KYXHH8fvBY2tqd7goVYnql4Y1iQu/ht+r8JzfFM2fRUoaoO0+40hc/VbrDtuJv9Ytba6Lmyhf/50duWre3gcfMEP61NElC0duFYIJDuoPAR9YuatlG1sp5yRytYS796mZFckmqvyIcXjLiBMfRNhIxDb9GmX+oDN9uuegu9rSdLlJBoATJDp6BQH+INCSIr0Wn4M4lARc3/LeLoJ35NxVxU/4/Pj1fwY0kCvTxgER8vI325+0FT3OPlb7WVSwFWPoaI3gywUOw5r1+PIXD57VuqMAOJctoo1pfwwefGvCrCWCLJ9XnpeItms2gVQJ8Mr/oW43CBaiu306Z43Pgbdyq+CWYwTovo3cc="
+    - secure: "FVHDy2CS0b8PZWmrl7Typ/5aKLPvUpuMF/NJKSymRDOsymZ5miYhtBWDLNskTJn3ffd+7vQ/c+kr2ICV2c8R932gdA47eAlBIld0iGZh9NUbJ2DbR3BMc7Ckfe7jy2nt/RzbQmwPerqSs/XExRqZ4z938ilQWnKNRzMEKlKa+m7HMq+90vxPGW8c2K9ltxxVqnrmV6FLnsNysNy/iX92OrDaOLZernpUE/JpUXy+jxCQSX062bxWwOkva/HhsURrp4EQxjBhAsVaBsTfPelC1vSd2D9b+jbj0DtkJg0k22yrq1B6wvrepvPt+7nMcsf0D7jFX7IhB8R/FKP+X41F0egIQQAUvWYdqUJkvO0JSIEaMT1/kyibiJLUhd/wzd1307pkMlPX+VWoi3qBgyH1Fzv7xSNT/aRwp9Vv7JjZhZamOLFhjE98SaDIH8fi8eIqMOSTN4lcZtmjVKgMSog9RxsMbXWp2uq1JFFjFQdBzVD8PcAoel6TJ8IDk0hjAVCxogC8OGLaRLxr93GLNxcRE5DJixRPVxITb1qk6ygTgwCbxsdd4tzxxfuTmDeRzWX9WghMZpqic5C+1EW9xNhcmLxP2bsZY4RxEB2ANQxPdKlU59ACfyhFp8OtdgVd6txMNgZLU0CLTPVgZ65FyfySRrv3QcqCKZi7C5XalMzE/KM="
+
+matrix:
+  include:
+    - language: python
+      os: linux
+      env: DEPLOY=true
+      python: 3.6
+      addons:
+        apt:
+          packages:
+          - ca-certificates
+          - libc++-dev
+          - g++-7
+          - clang
+          - libiomp-dev
+          sources:
+          - sourceline: 'ppa:ubuntu-toolchain-r/test'
+          - sourceline: 'ppa:jonathonf/gcc-7.1'
+          - sourceline: 'ppa:deadsnakes/ppa'
+      dist: trusty
+    - language: cpp
+      os: osx
+      env: DEPLOY=false
+      osx_image: xcode8
+
+before_install:
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew update; fi
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew upgrade python; fi
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then curl https://bootstrap.pypa.io/get-pip.py | python3; fi
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then export PATH=/usr/local/Cellar/python/3.7.0/Frameworks/Python.framework/Versions/3.7/bin:$PATH; fi
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew install llvm; fi
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then export PATH=/usr/local/opt/llvm/bin:$PATH; fi
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then export LIBRARY_PATH=/usr/local/opt/llvm/lib:$PATH; fi
+  - if [ "$TRAVIS_OS_NAME" == "linux" ]; then sudo ln -s /usr/lib/libiomp5.so /usr/lib/libomp.so; fi
+  - which clang++ && clang++ --version
+  - which llvm-ar && llvm-ar --version
+  - which python3 && python3 --version
+  - which pip3 && pip3 --version
+  - pip3 install poetry
+
+install:
+  - poetry install
+
+# script:
+#   - python3 setup.py test
+#   - python3 -m coverage run setup.py test
+#   - python3 -m coverage combine
+
+# after_success:
+#   - codecov
+
+before_deploy:
+- poetry config http-basic.pypi $PYPIUSER $PYPIPASSWORD
+- poetry build # -f sdist
+
+deploy:
+  provider: script
+  script: poetry publish
+  skip_cleanup: true
+  on:
+    branch: master
+    condition: $DEPLOY = true
