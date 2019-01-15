@@ -5,28 +5,6 @@ from glob import iglob as _iglob
 
 import clang.cindex as _cindex
 
-def check():
-    args = parse_args(sys.argv[1:])
-
-    environment = _Environment(args)
-
-    filename = str(environment.files_in[0])
-
-    ### Create and parse index
-    index = _cindex.Index.create()
-    parse_arguments =  '--language c'.split()
-    translation_unit = index.parse(filename, options=_cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD, args=parse_arguments)
-
-    print('Translation unit:', translation_unit.spelling)
-    # visit(translation_unit.cursor)
-    for cursor in translation_unit.cursor.walk_preorder():
-        if cursor.location.file is not None and cursor.location.file.name == filename:
-            if cursor.kind in (_cindex.CursorKind.MACRO_INSTANTIATION, _cindex.CursorKind.MACRO_DEFINITION, _cindex.CursorKind.FUNCTION_DECL):
-                print('Found %s Type %s DATA %s Extent %s [line=%s, col=%s]' % (cursor.displayname, cursor.kind, cursor.data, cursor.extent, cursor.location.line, cursor.location.column))
-
-
-
-
 def get_documentables(translation_unit):
     filename = translation_unit.cursor.spelling
 
@@ -71,18 +49,18 @@ def get_documentables(translation_unit):
     return macros, variables, typedefs, enums, structs, functions, comments
 
 
-def docstring_from_function(function, file_string):
-    full_function_name = ""
-    if function.extent.start.line == function.extent.end.line:
-        full_function_name = file_string.splitlines()[function.location.line-1][function.extent.start.column-1:function.extent.end.column-1].strip()
+def full_name_from_cursor(cursor, file_string):
+    full_name = ""
+    if cursor.extent.start.line == cursor.extent.end.line:
+        full_name = file_string.splitlines()[cursor.location.line-1][cursor.extent.start.column-1:cursor.extent.end.column-1].strip()
     else:
-        full_function_name = file_string.splitlines()[function.extent.start.line-1].strip()
-        for l in range(function.extent.start.line, function.extent.end.line-1):
-            full_function_name += " " + file_string.splitlines()[l].strip()
-        full_function_name += " " + file_string.splitlines()[function.extent.end.line-1].strip()
-    if full_function_name.endswith(";"):
-        full_function_name = full_function_name[:-1]
-    return full_function_name
+        full_name = file_string.splitlines()[cursor.extent.start.line-1].strip()
+        for l in range(cursor.extent.start.line, cursor.extent.end.line-1):
+            full_name += " " + file_string.splitlines()[l].strip()
+        full_name += " " + file_string.splitlines()[cursor.extent.end.line-1].strip()
+    if full_name.endswith(";"):
+        full_name = full_name[:-1]
+    return full_name
 
 
 def docstring_from_comment(comment):
@@ -127,7 +105,7 @@ def parse_args(args):
         '-o',
         dest='out_file_folder',
         type=_Path,
-        help='file or folder. Specify either a file explicitly or a directory. Must match input') # TODO: maybe output directory would be better
+        help='file or folder. Specify either a file explicitly or a directory. Must match input')
 
     return parser.parse_args(args=args)
 
@@ -195,7 +173,7 @@ def transform_file(file_in, file_out):
 
     ### Output file header
     with open(file_out, 'w') as content_file:
-        content_file.write("C API documentation\n===================")
+        content_file.write("")#"C API documentation\n===================")
 
     ### Read input to string
     content = ""
@@ -222,47 +200,48 @@ def transform_file(file_in, file_out):
         ### The comment is followed by a variable
         if next_line in variable_lines:
             variable = variables[variable_lines.index(next_line)]
-            name = docstring_from_function(variable, content)
-            # name = typedef.spelling
-            output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
+            short_name = variable.spelling
+            full_name = full_name_from_cursor(variable, content)
+            output = f"\n\n### {short_name}\n\n```C\n{full_name}\n```\n\n" + comment_text + "\n\n"#"\n\n-------------------------------\n"
 
         ### The comment is followed by a typedef
         elif next_line in typedef_lines:
             typedef = typedefs[typedef_lines.index(next_line)]
-            name = docstring_from_function(typedef, content)
-            # name = typedef.spelling
-            output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
+            short_name = typedef.spelling
+            full_name = full_name_from_cursor(struct, typedef)
+            output = f"\n\n### {short_name}\n\n```C\n{full_name}\n```\n\n" + comment_text + "\n\n"#"\n\n-------------------------------\n"
 
         ### The comment is followed by an enum
         elif next_line in enum_lines:
             enum = enums[enum_lines.index(next_line)]
-            name = docstring_from_function(enum, content)
-            # name = enum.spelling
-            output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
+            short_name = enum.spelling
+            full_name = full_name_from_cursor(enum, content)
+            output = f"\n\n### {short_name}\n\n```C\n{full_name}\n```\n\n" + comment_text + "\n\n"#"\n\n-------------------------------\n"
 
         ### The comment is followed by a function
         elif next_line in function_lines:
             function = functions[function_lines.index(next_line)]
-            full_function_name = docstring_from_function(function, content)
-            output = f"\n\n**`{full_function_name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
+            short_name = function.spelling
+            full_name = full_name_from_cursor(function, content)
+            output = f"\n\n### {short_name}\n\n```C\n{full_name}\n```\n\n" + comment_text + "\n\n"#"\n\n-------------------------------\n"
 
         ### The comment is followed by a struct
         elif next_line in struct_lines:
             struct = structs[struct_lines.index(next_line)]
-            name = docstring_from_function(struct, content)
-            # name = struct.spelling
-            output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
+            short_name = struct.spelling
+            full_name = full_name_from_cursor(struct, content)
+            output = f"\n\n### {short_name}\n\n```C\n{full_name}\n```\n\n" + comment_text + "\n\n"#"\n\n-------------------------------\n"
 
         ### The comment is followed by a macro
         elif next_line in macro_lines:
             macro = macros[macro_lines.index(next_line)]
-            name = docstring_from_function(macro, content)
-            # name = typedef.spelling
-            output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
+            short_name = macro.spelling
+            full_name = full_name_from_cursor(macro, content)
+            output = f"\n\n### {short_name}\n\n```C\n{full_name}\n```\n\n" + comment_text + "\n\n"#"\n\n-------------------------------\n"
 
         ### The comment is free-standing
         elif not content.splitlines()[next_line-1].strip():
-            output = f"\n\n" + comment_text + "\n\n-------------------------------\n"
+            output = f"\n\n" + comment_text + "\n\n"#"\n\n-------------------------------\n"
 
         ### Otherwise we may have made a mistake?
         else:
@@ -273,6 +252,26 @@ def transform_file(file_in, file_out):
         with open(file_out, 'a') as outfile:
             for l in output.splitlines():
                 print(l, file=outfile)
+
+
+def check():
+    args = parse_args(sys.argv[1:])
+
+    environment = _Environment(args)
+
+    filename = str(environment.files_in[0])
+
+    ### Create and parse index
+    index = _cindex.Index.create()
+    parse_arguments =  '--language c'.split()
+    translation_unit = index.parse(filename, options=_cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD, args=parse_arguments)
+
+    print('Translation unit:', translation_unit.spelling)
+    # visit(translation_unit.cursor)
+    for cursor in translation_unit.cursor.walk_preorder():
+        if cursor.location.file is not None and cursor.location.file.name == filename:
+            if cursor.kind in (_cindex.CursorKind.MACRO_INSTANTIATION, _cindex.CursorKind.MACRO_DEFINITION, _cindex.CursorKind.FUNCTION_DECL):
+                print('Found %s Type %s DATA %s Extent %s [line=%s, col=%s]' % (cursor.displayname, cursor.kind, cursor.data, cursor.extent, cursor.location.line, cursor.location.column))
 
 
 def main():
