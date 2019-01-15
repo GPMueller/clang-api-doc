@@ -14,6 +14,7 @@ packages = [ { include = "clang_api_doc", from = "." } ]
 
 [tool.poetry.scripts]
 clang-api-doc = 'clang_api_doc:clang_api_doc.main'
+clang-api-check = 'clang_api_doc:clang_api_doc.check'
 
 [tool.poetry.dependencies]
 python = "^3.6"

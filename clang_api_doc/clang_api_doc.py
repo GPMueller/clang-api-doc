@@ -1,24 +1,16 @@
 import sys
 import argparse as _argparse
 from pathlib import Path as _Path
+from glob import iglob as _iglob
 
 import clang.cindex as _cindex
 
 def check():
     args = parse_args(sys.argv[1:])
 
-    ### Input
-    if args.directory:
-        print("specifying a header directory is not yet supported")
-        exit(1)
-    elif args.files:
-        file_list = [str(name) for name in args.files.split(',')]
+    environment = _Environment(args)
 
-    filename = file_list[0]
-
-    ### Set the path to llvm to find libclang
-    if args.llvmlib:
-        _cindex.Config.set_library_path(args.llvmlib)
+    filename = str(environment.files_in[0])
 
     ### Create and parse index
     index = _cindex.Index.create()
@@ -125,20 +117,17 @@ def parse_args(args):
         help='set the path to the llvm libclang')
 
     parser.add_argument(
-        '-d', '--directory',
+        '-f',
+        dest='in_file_folder',
         type=_Path,
-        help='set the header directory')
-
-    parser.add_argument(
-        '-f', '--files',
-        type=str,
         default="",
-        help='specify files explicitly instead of a directory (comma-separated list)')
+        help='file or folder. Specify either a file explicitly or a directory')
 
     parser.add_argument(
-        '-o', '--outfile',
+        '-o',
+        dest='out_file_folder',
         type=_Path,
-        help='set the output file') # TODO: maybe output directory would be better
+        help='file or folder. Specify either a file explicitly or a directory. Must match input') # TODO: maybe output directory would be better
 
     return parser.parse_args(args=args)
 
@@ -148,33 +137,51 @@ class _Environment:
         self.files_in  = []
         self.files_out = []
 
-        ### Input
-        if args.directory:
-            print("specifying a header directory is not yet supported")
-            exit(1)
-        elif args.files:
-            self.files_in = [_Path(str(name)).resolve() for name in args.files.split(',')]
+        recursive = False
 
+        ### Input
+        if args.in_file_folder:
+            path_in = args.in_file_folder.resolve()
+        else:
+            path_in = _Path(".").resolve()
 
         ### Output
-        if args.outfile:
-            self.files_out = [args.outfile.resolve()]
+        if args.out_file_folder:
+            path_out = args.out_file_folder.resolve()
         else:
-            self.files_out = [_Path("clang-api-doc.md").resolve()]
+            path_out = _Path(".").resolve()
+
+        ###
+        if path_in.is_file():
+            ### Input
+            self.files_in = [path_in]
+            ### Output
+            if path_out.is_file():
+                self.files_out = [args.out_file_folder.resolve()]
+            elif path_out.is_dir():
+                self.files_out = [(args.out_file_folder.joinpath(self.files_in[0])).resolve()]
+            else:
+                print("Output path could not be found")
+                exit(1)
+        elif path_in.is_dir():
+            if path_out.is_dir():
+                ### Input
+                self.files_in = [_Path(f).resolve() for f in _iglob(str(path_in)+'/*', recursive=recursive) if _Path(f).is_file()]
+                ### Output
+                self.files_out = [path_out.joinpath(str(file_in.stem) + ".md") for file_in in self.files_in]
+            elif path_out.is_file():
+                print("Input is a folder, but the output specified is a file. This is not allowed")
+                exit(1)
+            else:
+                print("Output path could not be found")
+                exit(1)
 
         ### Set the path to llvm to find libclang
         if args.llvmlib:
             _cindex.Config.set_library_path(args.llvmlib)
 
 
-def main():
-    args = parse_args(sys.argv[1:])
-
-    # print("args:",args)
-    environment = _Environment(args)
-
-    file_in = environment.files_in[0]
-    file_out = environment.files_out[0]
+def transform_file(file_in, file_out):
 
     ### Create and parse index
     index = _cindex.Index.create()
@@ -267,6 +274,15 @@ def main():
             for l in output.splitlines():
                 print(l, file=outfile)
 
+
+def main():
+    args = parse_args(sys.argv[1:])
+
+    environment = _Environment(args)
+
+    size = len(environment.files_in)
+    for idx in range(size):
+        transform_file(environment.files_in[idx], environment.files_out[idx])
 
 
 if __name__ == '__main__':
