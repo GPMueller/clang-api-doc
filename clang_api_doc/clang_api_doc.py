@@ -28,8 +28,8 @@ def check():
     print('Translation unit:', translation_unit.spelling)
     # visit(translation_unit.cursor)
     for cursor in translation_unit.cursor.walk_preorder():
-        if cursor.kind in (_cindex.CursorKind.MACRO_INSTANTIATION, _cindex.CursorKind.MACRO_DEFINITION):
-            if cursor.location.file is not None:
+        if cursor.location.file is not None and cursor.location.file.name == filename:
+            if cursor.kind in (_cindex.CursorKind.MACRO_INSTANTIATION, _cindex.CursorKind.MACRO_DEFINITION, _cindex.CursorKind.FUNCTION_DECL):
                 print('Found %s Type %s DATA %s Extent %s [line=%s, col=%s]' % (cursor.displayname, cursor.kind, cursor.data, cursor.extent, cursor.location.line, cursor.location.column))
 
 
@@ -52,11 +52,13 @@ def get_documentables(translation_unit):
             pass
         elif cursor.location.file.name != filename:
             pass
-        elif cursor.kind in (_cindex.CursorKind.MACRO_INSTANTIATION, _cindex.CursorKind.MACRO_DEFINITION):
+        elif cursor.kind == _cindex.CursorKind.MACRO_INSTANTIATION:
+            macros.append(cursor)
+        elif cursor.kind == _cindex.CursorKind.MACRO_DEFINITION:
             macros.append(cursor)
         # elif cursor.kind == _cindex.CursorKind.CALL_EXPR:
         #     calls.append(cursor)
-        # if cursor.kind == _cindex.CursorKind.MACRO_DEFINITION: # _cindex.CursorKind.MACRO_INSTANTIATION, 
+        # if cursor.kind == _cindex.CursorKind.MACRO_DEFINITION: # _cindex.CursorKind.MACRO_INSTANTIATION,
             # macros.append(cursor)
         # elif cursor.kind == _cindex.CursorKind.:
         #     typedefs.append(cursor)
@@ -141,48 +143,56 @@ def parse_args(args):
     return parser.parse_args(args=args)
 
 
+class _Environment:
+    def __init__(self, args):
+        self.files_in  = []
+        self.files_out = []
+
+        ### Input
+        if args.directory:
+            print("specifying a header directory is not yet supported")
+            exit(1)
+        elif args.files:
+            self.files_in = [_Path(str(name)).resolve() for name in args.files.split(',')]
+
+
+        ### Output
+        if args.outfile:
+            self.files_out = [args.outfile.resolve()]
+        else:
+            self.files_out = [_Path("clang-api-doc.md").resolve()]
+
+        ### Set the path to llvm to find libclang
+        if args.llvmlib:
+            _cindex.Config.set_library_path(args.llvmlib)
+
+
 def main():
     args = parse_args(sys.argv[1:])
-    
+
     # print("args:",args)
+    environment = _Environment(args)
 
-
-    ### Input
-    if args.directory:
-        print("specifying a header directory is not yet supported")
-        exit(1)
-    elif args.files:
-        file_list = [str(name) for name in args.files.split(',')]
-
-    filename = file_list[0]
-
-    ### Output
-    if args.outfile:
-        outfilename = args.outfile.resolve()
-    else:
-        outfilename = "clang-api-doc.md"
-
-    ### Set the path to llvm to find libclang
-    if args.llvmlib:
-        _cindex.Config.set_library_path(args.llvmlib)
+    file_in = environment.files_in[0]
+    file_out = environment.files_out[0]
 
     ### Create and parse index
     index = _cindex.Index.create()
     parse_arguments =  '--language c'.split()
-    translation_unit = index.parse(filename, options=_cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD, args=parse_arguments)
+    translation_unit = index.parse(str(file_in), options=_cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD, args=parse_arguments)
 
-    print(filename, "->", outfilename)
+    print(file_in, "->", file_out)
 
     ### Get functions and comments
     macros, variables, typedefs, enums, structs, functions, comments = get_documentables(translation_unit)
 
     ### Output file header
-    with open(outfilename, 'w') as content_file:
+    with open(file_out, 'w') as content_file:
         content_file.write("C API documentation\n===================")
 
     ### Read input to string
     content = ""
-    with open(filename, 'r') as content_file:
+    with open(file_in, 'r') as content_file:
         content = content_file.read()
 
 
@@ -202,33 +212,25 @@ def main():
 
         next_line = comment.extent.end.line + 1
 
-        ### The comment is followed by a macro
-        if next_line in macro_lines:
-            macro = macros[macro_lines.index(next_line)]
-            name = docstring_from_function(macro, content)
-            print("MACRO #################### ", macro, name)
-            # name = typedef.spelling 
-            output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
-
         ### The comment is followed by a variable
         if next_line in variable_lines:
             variable = variables[variable_lines.index(next_line)]
             name = docstring_from_function(variable, content)
-            # name = typedef.spelling 
+            # name = typedef.spelling
             output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
 
         ### The comment is followed by a typedef
-        if next_line in typedef_lines:
+        elif next_line in typedef_lines:
             typedef = typedefs[typedef_lines.index(next_line)]
             name = docstring_from_function(typedef, content)
-            # name = typedef.spelling 
+            # name = typedef.spelling
             output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
 
         ### The comment is followed by an enum
-        if next_line in enum_lines:
+        elif next_line in enum_lines:
             enum = enums[enum_lines.index(next_line)]
             name = docstring_from_function(enum, content)
-            # name = enum.spelling 
+            # name = enum.spelling
             output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
 
         ### The comment is followed by a function
@@ -244,6 +246,13 @@ def main():
             # name = struct.spelling
             output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
 
+        ### The comment is followed by a macro
+        elif next_line in macro_lines:
+            macro = macros[macro_lines.index(next_line)]
+            name = docstring_from_function(macro, content)
+            # name = typedef.spelling
+            output = f"\n\n**`{name}`:**\n\n" + comment_text + "\n\n-------------------------------\n"
+
         ### The comment is free-standing
         elif not content.splitlines()[next_line-1].strip():
             output = f"\n\n" + comment_text + "\n\n-------------------------------\n"
@@ -253,8 +262,8 @@ def main():
             pass
 
         ### Add to file
-        print(output)
-        with open(outfilename, 'a') as outfile:
+        # print(output)
+        with open(file_out, 'a') as outfile:
             for l in output.splitlines():
                 print(l, file=outfile)
 
