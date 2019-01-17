@@ -3,7 +3,7 @@ requires = ['poetry'] # 'setuptools', 'wheel',
 
 [tool.poetry]
 name = "clang-api-doc"
-version = "0.1.0"
+version = "0.2.0"
 description = "Automatically generate API documentation for C language dialects"
 authors = ["Gideon Müller <gpmueller@outlook.com>"]
 license = "MIT"
@@ -14,6 +14,7 @@ packages = [ { include = "clang_api_doc", from = "." } ]
 
 [tool.poetry.scripts]
 clang-api-doc = 'clang_api_doc:clang_api_doc.main'
+clang-api-check = 'clang_api_doc:clang_api_doc.check'
 
 [tool.poetry.dependencies]
 python = "^3.6"
