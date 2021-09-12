@@ -12,8 +12,14 @@ Usage
 Simply call `clang-api-doc` once per file you wish to document, e.g.
 
 ```bash
-clang-api-doc -f 'include/mylib/first.h' -o 'first.md'
-clang-api-doc -f 'include/mylib/second.h' -o 'second.md'
+clang-api-doc -i 'include/mylib/first.h' -o 'docs/first.md'
+clang-api-doc -i 'include/mylib/second.h' -o 'docs/second.md'
+```
+
+or once per folder, e.g.
+
+```bash
+clang-api-doc -i 'include/mylib/' -o 'docs/'
 ```
 
 These files can then be used in any way you wish to create your final documentation, for example

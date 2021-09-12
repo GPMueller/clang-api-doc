@@ -39,7 +39,7 @@ class TestClangApiDoc(unittest.TestCase):
         try:
             infile = TESTS_PATH / "headers" / "simple.h"
             outfile = TESTS_PATH / "simple.md"
-            subprocess.check_output(["clang-api-doc", '-f', str(infile), '-o', str(outfile)], shell=True, stderr=subprocess.STDOUT)
+            subprocess.check_output(["clang-api-doc", '-i', str(infile), '-o', str(outfile)], shell=True, stderr=subprocess.STDOUT)
             docs = outfile.read_text()
             self.assertEqual(docs.strip(), SIMPLE_H_DOCS.strip())
         except subprocess.CalledProcessError as e:
