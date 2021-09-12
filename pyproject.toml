@@ -1,6 +1,9 @@
 [build-system]
 requires = ['poetry']
 
+[tool.black]
+line-length = 88
+
 [tool.poetry]
 name = "clang-api-doc"
 version = "0.3.0"
@@ -26,3 +29,4 @@ pylint = "^2.1"
 coverage = "^4.5"
 codecov = "^2.0"
 libclang = "*"
+black = "*"

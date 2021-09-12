@@ -12,40 +12,39 @@ def parse_args(args):
     parser = _argparse.ArgumentParser(
         description="clang-api-doc is a tool for automatic API documentation generation.",
         formatter_class=_argparse.ArgumentDefaultsHelpFormatter,
-        fromfile_prefix_chars='@')
+        fromfile_prefix_chars="@",
+    )
 
     parser.add_argument(
-        '--debug',
-        help='activate more detailed output',
-        action='store_true')
+        "--debug", help="activate more detailed output", action="store_true"
+    )
 
     parser.add_argument(
-        '-V', '--verbose',
-        help='activate more detailed output',
-        action='store_true')
+        "-V", "--verbose", help="activate more detailed output", action="store_true"
+    )
 
     parser.add_argument(
-        '-r', '--recursive',
-        help='search recursively',
-        action='store_true')
+        "-r", "--recursive", help="search recursively", action="store_true"
+    )
 
     parser.add_argument(
-        '-l', '--llvmlib',
-        type=str,
-        help='set the path to the llvm libclang')
+        "-l", "--llvmlib", type=str, help="set the path to the llvm libclang"
+    )
 
     parser.add_argument(
-        '-i',
-        dest='input',
+        "-i",
+        dest="input",
         type=_Path,
         default="",
-        help='file or folder. Specify either a file explicitly or a directory')
+        help="file or folder. Specify either a file explicitly or a directory",
+    )
 
     parser.add_argument(
-        '-o',
-        dest='output',
+        "-o",
+        dest="output",
         type=_Path,
-        help='file or folder. Specify either a file explicitly or a directory. Must match input')
+        help="file or folder. Specify either a file explicitly or a directory. Must match input",
+    )
 
     return parser.parse_args(args=args)
 
@@ -62,9 +61,10 @@ def main():
     args = parse_args(sys.argv[1:])
 
     if not args.input.is_file() and not args.input.is_dir():
-        print(f"Error: input path \"{args.input}\" could not be found")
+        print(f"Error: input path '{args.input}' could not be found")
         exit(1)
 
+    # Note: output is not required to already exist
     if not args.output:
         print("Error: you must specify an output path")
         exit(1)
@@ -79,7 +79,11 @@ def main():
         input_files = [_Path(args.input)]
     else:
         root_input_folder = _Path(args.input)
-        input_files = [_Path(f) for f in _iglob(str(root_input_folder)+'/*', recursive=recursive) if _Path(f).is_file()]
+        input_files = [
+            _Path(f)
+            for f in _iglob(str(root_input_folder) + "/*", recursive=recursive)
+            if _Path(f).is_file()
+        ]
 
     output_is_file = args.output.suffixes
     if args.output.exists():
@@ -88,7 +92,9 @@ def main():
 
     # Check compatibility of input and output
     if output_is_file and len(input_files) > 1:
-        print(f"Error: cannot use single file output \"{args.output}\" with folder input, which contains multiple files: {input_files}")
+        print(
+            f"Error: cannot use single file output '{args.output}' with folder input, which contains multiple files: {input_files}"
+        )
         exit(1)
 
     # Figure out output file(s)
@@ -106,5 +112,5 @@ def main():
         clang_api_doc.transform_file(file_in, file_out)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

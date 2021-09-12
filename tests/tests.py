@@ -36,6 +36,7 @@ float * get_data(state * state)
 Returns the pointer to the data in the current state
 """
 
+
 class TestClangApiDoc(unittest.TestCase):
     def test_simple(self):
         infile = TESTS_PATH / "headers" / "simple.h"
@@ -46,5 +47,6 @@ class TestClangApiDoc(unittest.TestCase):
         docs = outfile.read_text()
         self.assertEqual(docs.strip(), SIMPLE_H_DOCS.strip())
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
