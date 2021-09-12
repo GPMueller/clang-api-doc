@@ -5,6 +5,9 @@ Generate C API documentation using libclang Python bindings.
 
 For an example see the [documentation](https://clang-api-doc.readthedocs.io).
 
+[![CI](https://github.com/GPMueller/clang-api-doc/actions/workflows/ci.yml/badge.svg)](https://github.com/GPMueller/clang-api-doc/actions/workflows/ci.yml)
+[![PyPI version](https://badge.fury.io/py/clang-api-doc.svg)](https://badge.fury.io/py/clang-api-doc)
+
 
 Usage
 -------------
