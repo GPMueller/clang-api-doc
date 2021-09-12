@@ -81,13 +81,18 @@ def main():
         root_input_folder = _Path(args.input)
         input_files = [_Path(f) for f in _iglob(str(root_input_folder)+'/*', recursive=recursive) if _Path(f).is_file()]
 
+    output_is_file = args.output.suffixes
+    if args.output.exists():
+        if args.output.is_file():
+            output_is_file = True
+
     # Check compatibility of input and output
-    if args.output.is_file() and len(input_files) > 1:
-        print(f"Error: cannot use single file output \"{args.output}\" with folder input, which produced multiple files: {input_files}")
+    if output_is_file and len(input_files) > 1:
+        print(f"Error: cannot use single file output \"{args.output}\" with folder input, which contains multiple files: {input_files}")
         exit(1)
 
     # Figure out output file(s)
-    if args.output.is_file():
+    if output_is_file:
         root_output_folder = _Path(args.output).parent
         output_files = [_Path(args.output)]
     else:
