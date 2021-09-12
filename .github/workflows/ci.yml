@@ -36,7 +36,7 @@ jobs:
 
     - name: 🧪 Test
       shell: bash
-      run: echo 'test'
+      run: $HOME/.poetry/bin/poetry run python -m unittest
 
     - name: 🚀 Deploy to PyPI
       if: github.event_name == 'push' && ( startsWith( github.ref, 'refs/tags/' ) || github.ref == 'refs/heads/master' )
