@@ -1,5 +1,5 @@
 [build-system]
-requires = ['poetry'] # 'setuptools', 'wheel', 
+requires = ['poetry']
 
 [tool.poetry]
 name = "clang-api-doc"
@@ -26,3 +26,4 @@ sphinx = "^1.7"
 pylint = "^2.1"
 coverage = "^4.5"
 codecov = "^2.0"
+libclang = "*"
