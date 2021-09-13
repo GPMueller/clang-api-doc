@@ -4,6 +4,22 @@ requires = ['poetry']
 [tool.black]
 line-length = 88
 
+[tool.pylint.messages_control]
+disable = [
+    "duplicate-code",
+    "line-too-long",
+    "too-few-public-methods",
+    "too-many-ancestors",
+    "too-many-arguments",
+    "too-many-branches",
+    "too-many-instance-attributes",
+    "too-many-lines",
+    "too-many-locals",
+    "too-many-return-statements",
+    "too-many-statements",
+    "no-member"
+]
+
 [tool.poetry]
 name = "clang-api-doc"
 version = "0.3.0"
