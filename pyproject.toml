@@ -22,7 +22,7 @@ disable = [
 
 [tool.poetry]
 name = "clang-api-doc"
-version = "0.3.0"
+version = "0.4.0"
 description = "Automatically generate API documentation for C language dialects"
 authors = ["Gideon Müller <gpmueller@outlook.com>"]
 license = "MIT"
