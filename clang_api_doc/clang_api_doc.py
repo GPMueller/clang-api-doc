@@ -73,7 +73,7 @@ def docstring_from_comment(comment):
     return text
 
 
-def transform_file(file_in, file_out):
+def transform_file(file_in: Path, file_out: Path):
     # Create and parse index
     index = _cindex.Index.create()
     parse_arguments = "--language c".split()
@@ -97,12 +97,12 @@ def transform_file(file_in, file_out):
     ) = get_documentables(translation_unit)
 
     # Output file header
-    with open(file_out, "w") as content_file:
+    with file_out.open("w") as content_file:
         content_file.write("")
 
     # Read input to string
     content = ""
-    with open(file_in, "r") as content_file:
+    with file_in.open("r") as content_file:
         content = content_file.read()
 
     # comment_end_lines = [comment.extent.end.line for comment in comments]
@@ -195,6 +195,6 @@ def transform_file(file_in, file_out):
             pass
 
         # Add to file
-        with open(file_out, "a") as outfile:
+        with file_out.open("a", encoding="utf-8") as outfile:
             for l in output.splitlines():
                 print(l, file=outfile)

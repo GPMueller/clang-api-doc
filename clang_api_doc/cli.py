@@ -106,7 +106,7 @@ def main():
         for infile in input_files:
             relative_path = infile.parent.relative_to(root_input_folder)
             stem = infile.stem
-            output_files = [root_output_folder / relative_path / (stem + ".md")]
+            output_files.append(root_output_folder / relative_path / (stem + ".md"))
 
     for file_in, file_out in zip(input_files, output_files):
         clang_api_doc.transform_file(file_in, file_out)
